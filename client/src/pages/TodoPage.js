@@ -15,7 +15,8 @@ export default function TodoPage() {
   const [loadingAdd, setLoadingAdd] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editTask, setEditTask] = useState("");
   const [editError, setEditError] = useState("");
@@ -34,6 +35,7 @@ export default function TodoPage() {
 
   useEffect(() => {
     fetchTodos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ================= LOGOUT ================= */
@@ -56,7 +58,7 @@ export default function TodoPage() {
     try {
       setLoadingAdd(true);
       setError("");
-      await api.post("/todos", { task });
+      await api.post("/todos", { task }); // backend should handle 'user'
       setTask("");
       fetchTodos();
     } catch (err) {
@@ -80,11 +82,11 @@ export default function TodoPage() {
   };
 
   /* ================= EDIT MODAL ================= */
-  const openModal = (todo) => {
+  const openEditModal = (todo) => {
     setEditingId(todo._id);
     setEditTask(todo.task);
     setEditError("");
-    setIsModalOpen(true);
+    setIsEditOpen(true);
   };
 
   const updateTodo = async () => {
@@ -96,7 +98,7 @@ export default function TodoPage() {
       setLoadingUpdate(true);
       setEditError("");
       await api.put(`/todos/${editingId}`, { task: editTask });
-      setIsModalOpen(false);
+      setIsEditOpen(false);
       fetchTodos();
     } catch (err) {
       setEditError(err.response?.data?.error || "Something went wrong");
@@ -115,8 +117,13 @@ export default function TodoPage() {
             <p style={styles.subtitle}>MERN Stack Application</p>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
-            <FaCog style={styles.settingsIcon} onClick={() => setIsModalOpen(true)} />
-            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+            <FaCog
+              style={styles.settingsIcon}
+              onClick={() => setIsSettingsOpen(true)}
+            />
+            <button onClick={handleLogout} style={styles.logoutBtn}>
+              Logout
+            </button>
           </div>
         </div>
 
@@ -142,7 +149,7 @@ export default function TodoPage() {
             <TodoCard
               key={todo._id}
               todo={todo}
-              onEdit={openModal}
+              onEdit={openEditModal}
               onDelete={deleteTodo}
               loadingDelete={loadingDelete}
             />
@@ -151,10 +158,13 @@ export default function TodoPage() {
       </div>
 
       {/* SETTINGS MODAL */}
-      <SettingsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
 
       {/* EDIT TASK MODAL */}
-      {isModalOpen && editingId && (
+      {isEditOpen && editingId && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
             <h3 style={styles.modalHeading}>Update Task</h3>
@@ -174,7 +184,7 @@ export default function TodoPage() {
               {loadingUpdate ? "Updating..." : "Save Changes"}
             </button>
             <button
-              onClick={() => !loadingUpdate && setIsModalOpen(false)}
+              onClick={() => !loadingUpdate && setIsEditOpen(false)}
               style={styles.cancelBtn}
             >
               Cancel
