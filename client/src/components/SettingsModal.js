@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 import api from "../api/api";
+import { supabase } from "../supabaseClient";
 
 export default function SettingsModal({ isOpen, onClose }) {
   const [profileImage, setProfileImage] = useState("");
@@ -8,58 +9,69 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [birthDate, setBirthDate] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [loading, setLoading] = useState(false);
-
   const [userId, setUserId] = useState(null);
 
   // Fetch current user info
   useEffect(() => {
     if (!isOpen) return;
+
     const fetchUser = async () => {
       try {
         const res = await api.get("/auth/me");
+
         setProfileImage(res.data.profileImage || "");
-        setBirthDate(res.data.birthDate ? res.data.birthDate.split("T")[0] : "");
+        setBirthDate(
+          res.data.birthDate ? res.data.birthDate.split("T")[0] : ""
+        );
         setPronoun(res.data.pronoun || "Mr");
         setUserId(res.data._id);
       } catch (err) {
         console.error(err);
       }
     };
+
     fetchUser();
   }, [isOpen]);
 
-  // Handle file selection
+  // File selection
   const handleFileChange = (e) => {
-    if (e.target.files[0]) setImageFile(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImageFile(file);
+
+    // Preview selected image instantly
+    const previewUrl = URL.createObjectURL(file);
+    setProfileImage(previewUrl);
   };
 
-  // Upload to Supabase
+  // Upload + Save
   const handleUpload = async () => {
     if (!userId) return;
 
     setLoading(true);
+
     try {
       let imageUrl = profileImage;
 
       if (imageFile) {
-        // upload to Supabase
-        const { createClient } = require("@supabase/supabase-js");
-        const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-        const supabaseKey = process.env.REACT_APP_SUPABASE_KEY;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
         const fileExt = imageFile.name.split(".").pop();
-        const fileName = `${userId}.${fileExt}`;
-        const { data, error } = await supabase.storage
+        const fileName = `${userId}-${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage
           .from("MERN-Profile-Images")
           .upload(fileName, imageFile, { upsert: true });
 
         if (error) throw error;
 
-        imageUrl = `${supabaseUrl}/storage/v1/object/public/MERN-Profile-Images/${fileName}`;
+        const { data } = supabase.storage
+          .from("MERN-Profile-Images")
+          .getPublicUrl(fileName);
+
+        imageUrl = data.publicUrl;
       }
 
-      // update backend
+      // Update backend
       await api.put(`/auth/update-profile/${userId}`, {
         profileImage: imageUrl,
         birthDate,
@@ -67,7 +79,8 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
 
       setProfileImage(imageUrl);
-      onClose(); // close modal after save
+      onClose();
+
     } catch (err) {
       console.error(err);
       alert("Failed to update profile");
@@ -82,6 +95,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     <div style={styles.overlay}>
       <div style={styles.modal}>
         <FaTimes style={styles.closeIcon} onClick={onClose} />
+
         <h2 style={styles.heading}>Profile Settings</h2>
 
         <div style={styles.imageContainer}>
@@ -93,6 +107,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         <input type="file" onChange={handleFileChange} style={styles.input} />
+
         <label style={styles.label}>
           Date of Birth
           <input
@@ -111,7 +126,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 value={p}
                 checked={pronoun === p}
                 onChange={() => setPronoun(p)}
-              />{" "}
+              />
               {p}
             </label>
           ))}
@@ -146,15 +161,24 @@ const styles = {
     alignItems: "center",
     position: "relative",
   },
-  heading: { marginBottom: "20px" },
+  heading: {
+    marginBottom: "20px",
+  },
   closeIcon: {
     position: "absolute",
     top: "15px",
     right: "15px",
     cursor: "pointer",
   },
-  imageContainer: { marginBottom: "15px" },
-  image: { width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover" },
+  imageContainer: {
+    marginBottom: "15px",
+  },
+  image: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    objectFit: "cover",
+  },
   placeholder: {
     width: "80px",
     height: "80px",
@@ -166,10 +190,29 @@ const styles = {
     color: "#ccc",
     fontSize: "12px",
   },
-  input: { margin: "8px 0", padding: "8px", borderRadius: "8px", border: "none", width: "100%" },
-  label: { display: "flex", flexDirection: "column", width: "100%", marginTop: "10px" },
-  radioGroup: { display: "flex", gap: "15px", marginTop: "10px" },
-  radioLabel: { display: "flex", alignItems: "center", gap: "5px" },
+  input: {
+    margin: "8px 0",
+    padding: "8px",
+    borderRadius: "8px",
+    border: "none",
+    width: "100%",
+  },
+  label: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    marginTop: "10px",
+  },
+  radioGroup: {
+    display: "flex",
+    gap: "15px",
+    marginTop: "10px",
+  },
+  radioLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+  },
   saveBtn: {
     marginTop: "20px",
     width: "100%",
