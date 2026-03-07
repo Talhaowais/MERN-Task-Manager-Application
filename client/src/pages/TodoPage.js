@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import api from "../api/api";
 import TodoCard from "../components/TodoCard";
 import { useNavigate } from "react-router-dom";
+import { FaCog } from "react-icons/fa";
+import SettingsModal from "../components/SettingsModal";
 
 export default function TodoPage() {
   const navigate = useNavigate();
@@ -20,31 +22,24 @@ export default function TodoPage() {
   const [loadingUpdate, setLoadingUpdate] = useState(false);
 
   /* ================= FETCH TODOS ================= */
-
   const fetchTodos = async () => {
     try {
       const res = await api.get("/todos");
       setTodos(res.data);
     } catch (err) {
       console.error(err);
-
-      // session expired → redirect to login
-      if (err.response?.status === 401) {
-        navigate("/login");
-      }
+      if (err.response?.status === 401) navigate("/login");
     }
   };
 
   useEffect(() => {
     fetchTodos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ================= LOGOUT ================= */
-
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout"); // backend clears cookie
+      await api.post("/auth/logout");
       navigate("/login");
     } catch (err) {
       console.error(err);
@@ -52,15 +47,12 @@ export default function TodoPage() {
   };
 
   /* ================= ADD TODO ================= */
-
   const addTodo = async (e) => {
     e.preventDefault();
-
     if (!task.trim()) {
-      setError("⚠ Task cannot be empty. Please enter any task.");
+      setError("⚠ Task cannot be empty");
       return;
     }
-
     try {
       setLoadingAdd(true);
       setError("");
@@ -75,7 +67,6 @@ export default function TodoPage() {
   };
 
   /* ================= DELETE ================= */
-
   const deleteTodo = async (id) => {
     try {
       setLoadingDelete(id);
@@ -89,7 +80,6 @@ export default function TodoPage() {
   };
 
   /* ================= EDIT MODAL ================= */
-
   const openModal = (todo) => {
     setEditingId(todo._id);
     setEditTask(todo.task);
@@ -99,10 +89,9 @@ export default function TodoPage() {
 
   const updateTodo = async () => {
     if (!editTask.trim()) {
-      setEditError("⚠ Task cannot be empty. Please enter any task.");
+      setEditError("⚠ Task cannot be empty");
       return;
     }
-
     try {
       setLoadingUpdate(true);
       setEditError("");
@@ -119,17 +108,16 @@ export default function TodoPage() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        
-        {/* HEADER WITH LOGOUT */}
+        {/* HEADER WITH SETTINGS AND LOGOUT */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Task Manager</h1>
             <p style={styles.subtitle}>MERN Stack Application</p>
           </div>
-
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            Logout
-          </button>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <FaCog style={styles.settingsIcon} onClick={() => setIsModalOpen(true)} />
+            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+          </div>
         </div>
 
         {/* ADD FORM */}
@@ -146,7 +134,6 @@ export default function TodoPage() {
             {loadingAdd ? "Please wait..." : "Create"}
           </button>
         </form>
-
         {error && <p style={styles.error}>{error}</p>}
 
         {/* TODO LIST */}
@@ -163,12 +150,14 @@ export default function TodoPage() {
         </div>
       </div>
 
-      {/* MODAL */}
-      {isModalOpen && (
+      {/* SETTINGS MODAL */}
+      <SettingsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* EDIT TASK MODAL */}
+      {isModalOpen && editingId && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
             <h3 style={styles.modalHeading}>Update Task</h3>
-
             <input
               type="text"
               value={editTask}
@@ -176,9 +165,7 @@ export default function TodoPage() {
               onFocus={() => setEditError("")}
               style={styles.input}
             />
-
             {editError && <p style={styles.error}>{editError}</p>}
-
             <button
               onClick={updateTodo}
               disabled={loadingUpdate}
@@ -186,7 +173,6 @@ export default function TodoPage() {
             >
               {loadingUpdate ? "Updating..." : "Save Changes"}
             </button>
-
             <button
               onClick={() => !loadingUpdate && setIsModalOpen(false)}
               style={styles.cancelBtn}
@@ -201,12 +187,7 @@ export default function TodoPage() {
 }
 
 /* ================= STYLES ================= */
-
 const styles = {
-  modalHeading: {
-    textAlign: "center",
-    marginBottom: "15%"
-  },
   page: {
     minHeight: "100vh",
     background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
@@ -229,6 +210,11 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "20px",
+  },
+  settingsIcon: {
+    fontSize: "20px",
+    cursor: "pointer",
+    color: "#fff",
   },
   logoutBtn: {
     padding: "8px 14px",
@@ -278,6 +264,7 @@ const styles = {
     width: "350px",
     color: "#fff",
   },
+  modalHeading: { textAlign: "center", marginBottom: "15%" },
   updateBtn: {
     marginTop: "15px",
     width: "100%",
