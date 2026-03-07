@@ -59,13 +59,13 @@ export default function SettingsModal({ isOpen, onClose }) {
         const fileName = `${userId}-${Date.now()}.${fileExt}`;
 
         const { error } = await supabase.storage
-          .from("MERN-Profile-Images")
+          .from("mern-images")
           .upload(fileName, imageFile, { upsert: true });
 
         if (error) throw error;
 
         const { data } = supabase.storage
-          .from("MERN-Profile-Images")
+          .from("mern-images")
           .getPublicUrl(fileName);
 
         imageUrl = data.publicUrl;
