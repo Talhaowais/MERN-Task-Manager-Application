@@ -7,7 +7,7 @@ const router = express.Router();
 /* ================= GET TODOS ================= */
 router.get("/", auth, async (req, res) => {
   try {
-    const todos = await Todo.find({ user: req.user._id })
+    const todos = await Todo.find({ user: req.user.id })
       .populate("assignedTo", "name email")
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email")
@@ -32,8 +32,9 @@ router.post("/", auth, async (req, res) => {
 
     const newTodo = await Todo.create({
       task,
-      user: req.user._id,
       assignedTo,
+      user: req.user.id,
+      createdBy: req.user.id
     });
 
     res.status(201).json(newTodo);
@@ -48,11 +49,11 @@ router.put("/:id", auth, async (req, res) => {
     const { task, status } = req.body;
 
     const todo = await Todo.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: req.user.id },
       {
         ...(task && { task }),
         ...(status && { status }),
-        updatedBy: req.user._id,
+        updatedBy: req.user.id
       },
       { new: true }
     );
@@ -70,7 +71,7 @@ router.delete("/:id", auth, async (req, res) => {
   try {
     const todo = await Todo.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id,
+      user: req.user.id
     });
 
     if (!todo) return res.status(404).json({ message: "Todo not found" });

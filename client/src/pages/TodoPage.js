@@ -75,24 +75,27 @@ export default function TodoPage() {
     }
   };
 
-  const addTodo = async (e) => {
-    e.preventDefault();
-    if (!task.trim()) return setError("⚠ Task cannot be empty");
-    if (!assignedTo) return setError("⚠ Please select a user");
+ const addTodo = async (e) => {
+  e.preventDefault();
 
-    try {
-      setLoadingAdd(true);
-      setError("");
-      await api.post("/todos", { task, assignedTo, user: assignedTo });
-      setTask("");
-      setAssignedTo("");
-      fetchTodos();
-    } catch (err) {
-      setError(err.response?.data?.error || "Something went wrong");
-    } finally {
-      setLoadingAdd(false);
-    }
-  };
+  if (!task.trim()) return setError("⚠ Task cannot be empty");
+  if (!assignedTo) return setError("⚠ Please select a user");
+
+  try {
+    setLoadingAdd(true);
+    setError("");
+
+    await api.post("/todos", { task, assignedTo });
+
+    setTask("");
+    setAssignedTo("");
+    fetchTodos();
+  } catch (err) {
+    setError(err.response?.data?.error || "Something went wrong");
+  } finally {
+    setLoadingAdd(false);
+  }
+};
 
   const deleteTodo = async (id) => {
     try {
