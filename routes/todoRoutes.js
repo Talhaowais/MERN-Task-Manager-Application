@@ -7,7 +7,12 @@ const router = express.Router();
 /* ================= GET TODOS ================= */
 router.get("/", auth, async (req, res) => {
   try {
-    const todos = await Todo.find({ user: req.user.id })
+    const todos = await Todo.find({
+        $or: [
+          { user: req.user.id },       // tasks created by the user
+          { assignedTo: req.user.id }  // tasks assigned to the user
+        ]
+      })
       .populate("assignedTo", "name email")
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email")
@@ -49,7 +54,12 @@ router.put("/:id", auth, async (req, res) => {
     const { task, status } = req.body;
 
     const todo = await Todo.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
+      { _id: req.params.id,
+        $or: [ 
+          { user: req.user.id },       // creator
+          { assignedTo: req.user.id }  // assigned user
+        ]  
+      },
       {
         ...(task && { task }),
         ...(status && { status }),
