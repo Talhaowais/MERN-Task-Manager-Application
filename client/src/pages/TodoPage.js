@@ -22,7 +22,7 @@ export default function TodoPage() {
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   
   // State for User Info
-  const [userData, setUserData] = useState({ name: "User", avatar: "" });
+  const [userData, setUserData] = useState({ name: "User", avatar: null });
 
   /* ================= FETCH DATA ================= */
   const fetchTodos = useCallback(async () => {
@@ -44,22 +44,25 @@ export default function TodoPage() {
     }
   }, []);
 
-  // Helper to parse cookie
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-  };
 
   useEffect(() => {
     fetchTodos();
     fetchUsers();
-    
-    // Set user from cookie or default
-    const userName = getCookie("username") || "User";
-    // Assuming avatar URL is stored in a cookie or fetched from API; 
-    // here we pull the name from cookie as requested.
-    setUserData({ name: userName, avatar: "/default-avatar.png" });
+    const fetchUser = async () => {
+    try {
+      const res = await api.get("/auth/me");
+
+      setUserData({
+        name: res.data.name,
+        avatar: res.data.profileImage || "/default-avatar.png"
+      });
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchUser();
   }, [fetchTodos, fetchUsers]);
 
   /* ================= HANDLERS ================= */
@@ -80,7 +83,7 @@ export default function TodoPage() {
     try {
       setLoadingAdd(true);
       setError("");
-      await api.post("/todos", { task, assignedTo });
+      await api.post("/todos", { task, assignedTo, user: assignedTo });
       setTask("");
       setAssignedTo("");
       fetchTodos();
@@ -165,7 +168,7 @@ export default function TodoPage() {
         <form onSubmit={addTodo} style={styles.form}>
           <input
             type="text"
-            placeholder="a new"
+            placeholder="Enter Task"
             value={task}
             onChange={(e) => setTask(e.target.value)}
             onFocus={() => setError("")}
@@ -265,7 +268,14 @@ const styles = {
   
   // Centered Welcome Style
   welcomeContainer: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "25px" },
-  userAvatar: { width: "80px", height: "80px", borderRadius: "50%", border: "3px solid #00b0ff", marginBottom: "10px" },
+  userAvatar: {
+  width: "80px",
+  height: "80px",
+  borderRadius: "50%",
+  border: "3px solid #00b0ff",
+  marginBottom: "10px",
+  objectFit: "cover"
+},
   welcomeText: { margin: 0, fontSize: "1.5rem" },
 
   title: { fontSize: "2.2rem", margin: 0, fontWeight: "bold" },

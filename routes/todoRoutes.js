@@ -45,11 +45,15 @@ router.post("/", auth, async (req, res) => {
 /* ================= UPDATE TODO ================= */
 router.put("/:id", auth, async (req, res) => {
   try {
-    const { task } = req.body;
+    const { task, status } = req.body;
 
     const todo = await Todo.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
-      { task },
+      {
+        ...(task && { task }),
+        ...(status && { status }),
+        updatedBy: req.user._id,
+      },
       { new: true }
     );
 
