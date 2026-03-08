@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { io } from "socket.io-client";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
 import { FaCog, FaEdit, FaTrash } from "react-icons/fa";
@@ -64,6 +65,27 @@ export default function TodoPage() {
 
   fetchUser();
   }, [fetchTodos, fetchUsers]);
+
+  // 2nd useeffect for sockets
+  const socketRef = useRef(null);
+  useEffect(() => {
+    socketRef.current = io("http://localhost:5000");
+    socketRef.current.on("connect", () => {
+      console.log("Connected to socket server");
+    });
+    socketRef.current.on("todoCreated", () => {
+      fetchTodos();
+    });
+    socketRef.current.on("todoUpdated", () => {
+      fetchTodos();
+    });
+    socketRef.current.on("todoDeleted", () => {
+      fetchTodos();
+    });
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, [fetchTodos]);
 
   /* ================= HANDLERS ================= */
   const handleLogout = async () => {

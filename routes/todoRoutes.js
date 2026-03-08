@@ -8,11 +8,11 @@ const router = express.Router();
 router.get("/", auth, async (req, res) => {
   try {
     const todos = await Todo.find({
-        $or: [
-          { user: req.user.id },       // tasks created by the user
-          { assignedTo: req.user.id }  // tasks assigned to the user
-        ]
-      })
+      $or: [
+        { user: req.user.id },
+        { assignedTo: req.user.id }
+      ]
+    })
       .populate("assignedTo", "name email")
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email")
@@ -42,6 +42,9 @@ router.post("/", auth, async (req, res) => {
       createdBy: req.user.id
     });
 
+    const io = req.app.get("io");
+    io.emit("todoCreated", newTodo);
+
     res.status(201).json(newTodo);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -54,11 +57,12 @@ router.put("/:id", auth, async (req, res) => {
     const { task, status } = req.body;
 
     const todo = await Todo.findOneAndUpdate(
-      { _id: req.params.id,
-        $or: [ 
-          { user: req.user.id },       // creator
-          { assignedTo: req.user.id }  // assigned user
-        ]  
+      {
+        _id: req.params.id,
+        $or: [
+          { user: req.user.id },
+          { assignedTo: req.user.id }
+        ]
       },
       {
         ...(task && { task }),
@@ -69,6 +73,9 @@ router.put("/:id", auth, async (req, res) => {
     );
 
     if (!todo) return res.status(404).json({ message: "Todo not found" });
+
+    const io = req.app.get("io");
+    io.emit("todoUpdated", todo);
 
     res.json(todo);
   } catch (error) {
@@ -81,10 +88,16 @@ router.delete("/:id", auth, async (req, res) => {
   try {
     const todo = await Todo.findOneAndDelete({
       _id: req.params.id,
-      user: req.user.id
+      $or: [
+        { user: req.user.id },       // creator
+        { assignedTo: req.user.id }  // assigned user
+      ]
     });
 
     if (!todo) return res.status(404).json({ message: "Todo not found" });
+
+    const io = req.app.get("io");
+    io.emit("todoDeleted", req.params.id);
 
     res.json({ message: "Todo deleted successfully" });
   } catch (error) {
