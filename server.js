@@ -4,43 +4,71 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const authRoutes = require("./routes/authRoutes");
 const todoRoutes = require("./routes/todoRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
+const server = http.createServer(app);
 
-// Middleware
-app.use(cors({
-  origin: process.env.ALLOWED_URL || "http://localhost:3000", // frontend origin
-  credentials: true // allow cookies
-}));
+// ================= SOCKET.IO =================
+const io = new Server(server, {
+  cors: {
+    origin: process.env.ALLOWED_URL || "http://localhost:3000",
+    credentials: true,
+  },
+});
+
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  console.log("⚡ User connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected:", socket.id);
+  });
+});
+
+// ================= MIDDLEWARE =================
+app.use(
+  cors({
+    origin: process.env.ALLOWED_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(cookieParser());
 
-// Debug logger
+// Optional debug logger
 app.use((req, res, next) => {
   console.log("Incoming request:", req.method, req.url);
   next();
 });
 
-// Routes
+// ================= ROUTES =================
+app.use("/api/auth", authRoutes);
+app.use("/api/todos", todoRoutes);
+app.use("/api/users", userRoutes);
 
+// ================= MONGODB CONNECTION =================
+console.log(
+  "Connecting to MongoDB URI preview:",
+  process.env.MONGO_URI?.slice(0, 20) + "..."
+);
 
-
-// MongoDB Connection
-console.log("URI preview:", process.env.MONGO_URI?.slice(0, 20) + "...");
 mongoose
-  .connect(process.env.MONGO_URI,)
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
   });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/todos", todoRoutes);
-
-// Start server
+// ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

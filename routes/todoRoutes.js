@@ -7,7 +7,17 @@ const router = express.Router();
 /* ================= GET TODOS ================= */
 router.get("/", auth, async (req, res) => {
   try {
-    const todos = await Todo.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const todos = await Todo.find({
+      $or: [
+        { user: req.user.id },
+        { assignedTo: req.user.id }
+      ]
+    })
+      .populate("assignedTo", "name email")
+      .populate("createdBy", "name email")
+      .populate("updatedBy", "name email")
+      .sort({ createdAt: -1 });
+
     res.json(todos);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -17,13 +27,23 @@ router.get("/", auth, async (req, res) => {
 /* ================= CREATE TODO ================= */
 router.post("/", auth, async (req, res) => {
   try {
-    const { task } = req.body;
-    if (!task) return res.status(400).json({ error: "Task cannot be empty" });
+    const { task, assignedTo } = req.body;
+
+    if (!task)
+      return res.status(400).json({ error: "Task cannot be empty" });
+
+    if (!assignedTo)
+      return res.status(400).json({ error: "Assigned user is required" });
 
     const newTodo = await Todo.create({
       task,
-      user: req.user._id, // <-- must be ObjectId
+      assignedTo,
+      user: req.user.id,
+      createdBy: req.user.id
     });
+
+    const io = req.app.get("io");
+    io.emit("todoCreated", newTodo);
 
     res.status(201).json(newTodo);
   } catch (error) {
@@ -34,15 +54,28 @@ router.post("/", auth, async (req, res) => {
 /* ================= UPDATE TODO ================= */
 router.put("/:id", auth, async (req, res) => {
   try {
-    const { task } = req.body;
+    const { task, status } = req.body;
 
     const todo = await Todo.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id }, // <-- use ObjectId
-      { task },
+      {
+        _id: req.params.id,
+        $or: [
+          { user: req.user.id },
+          { assignedTo: req.user.id }
+        ]
+      },
+      {
+        ...(task && { task }),
+        ...(status && { status }),
+        updatedBy: req.user.id
+      },
       { new: true }
     );
 
     if (!todo) return res.status(404).json({ message: "Todo not found" });
+
+    const io = req.app.get("io");
+    io.emit("todoUpdated", todo);
 
     res.json(todo);
   } catch (error) {
@@ -55,10 +88,16 @@ router.delete("/:id", auth, async (req, res) => {
   try {
     const todo = await Todo.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id, // <-- use ObjectId
+      $or: [
+        { user: req.user.id },       // creator
+        { assignedTo: req.user.id }  // assigned user
+      ]
     });
 
     if (!todo) return res.status(404).json({ message: "Todo not found" });
+
+    const io = req.app.get("io");
+    io.emit("todoDeleted", req.params.id);
 
     res.json({ message: "Todo deleted successfully" });
   } catch (error) {

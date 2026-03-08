@@ -4,10 +4,24 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const router = express.Router();
 
-// 12 hours in milliseconds
+// Cookie expiration 12h
 const COOKIE_EXPIRATION = 12 * 60 * 60 * 1000;
 
-// Signup
+// Middleware to verify token
+const authMiddleware = (req, res, next) => {
+  const token = req.cookies?.token || req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: decoded.userId };
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+
+/* ================= SIGNUP ================= */
 router.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password)
@@ -21,10 +35,8 @@ router.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, password: hashedPassword });
 
-    // create token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "12h" });
 
-    // set HTTP-only cookie
     res.cookie("token", token, {
       httpOnly: true,
       maxAge: COOKIE_EXPIRATION,
@@ -37,7 +49,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-// Login
+/* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
@@ -52,12 +64,11 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "12h" });
 
-    // set HTTP-only cookie
     res.cookie("token", token, {
-    httpOnly: true,
-    secure: true,        // REQUIRED for SameSite=None
-    sameSite: "none",    // allow cross-site cookie
-    maxAge: COOKIE_EXPIRATION,
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: COOKIE_EXPIRATION,
     });
 
     res.json({ message: "Login successful" });
@@ -66,11 +77,44 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Logout (optional)
-// POST /api/auth/logout
+/* ================= LOGOUT ================= */
 router.post("/logout", (req, res) => {
   res.clearCookie("token", { httpOnly: true, sameSite: "lax" });
   res.status(200).json({ message: "Logged out successfully" });
 });
 
-module.exports = router;
+/* ================= GET CURRENT USER ================= */
+router.get("/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= UPDATE PROFILE ================= */
+router.put("/update-profile/:id", authMiddleware, async (req, res) => {
+  const { profileImage, birthDate, pronoun } = req.body;
+
+  // Only allow the logged-in user to update their profile
+  if (req.user.id !== req.params.id) {
+    return res.status(403).json({ error: "You can only update your own profile" });
+  }
+
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { profileImage, birthDate, pronoun },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+module.exports = router;  
