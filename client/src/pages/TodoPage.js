@@ -69,7 +69,7 @@ export default function TodoPage() {
   // 2nd useeffect for sockets
   const socketRef = useRef(null);
   useEffect(() => {
-    socketRef.current = io("http://localhost:5000");
+    socketRef.current = io(process.env.REACT_APP_LINK);
     socketRef.current.on("connect", () => {
       console.log("Connected to socket server");
     });
