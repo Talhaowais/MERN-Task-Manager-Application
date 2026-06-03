@@ -102,6 +102,6 @@ export default function LoginPage() {
           </span>
         </p>
       </div>
-    </div>
+     </div>
   );
 }
